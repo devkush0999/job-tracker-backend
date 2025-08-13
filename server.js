@@ -1,3 +1,36 @@
+// const express = require('express');
+// const mongoose = require('mongoose');
+// const cors = require('cors');
+// const dotenv = require('dotenv');
+
+// dotenv.config();
+
+// const app = express();
+// const PORT = process.env.PORT || 3000;
+
+// // Middleware
+// app.use(cors());
+// app.use(express.json());
+
+// // MongoDB Connection
+// const connectDB = async () => {
+//   try {
+//     await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://cluster0.0rm0fxx.mongodb.net/', {
+//       useNewUrlParser: true,
+//       useUnifiedTopology: true,
+//     });
+//     console.log('MongoDB connected successfully');
+//   } catch (error) {
+//     console.error('MongoDB connection error:', error);
+//     process.exit(1);
+//   }
+// };
+
+
+
+
+
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -8,17 +41,29 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// Improved CORS setup
+app.use(cors({
+  origin: [
+    'http://localhost:19006',
+    'exp://your-expo-url',
+    /\.yourapp\.com$/ // Your production domain
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // MongoDB Connection
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://cluster0.0rm0fxx.mongodb.net/', {
+    await mongoose.connect(process.env.MONGODB_URI , {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000
     });
+    return true
     console.log('MongoDB connected successfully');
   } catch (error) {
     console.error('MongoDB connection error:', error);
@@ -114,6 +159,7 @@ app.delete('/api/applications/:id', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
+    const dd = connectDB()
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
@@ -133,16 +179,48 @@ app.use('*', (req, res) => {
 });
 
 // Start server
+// const startServer = async () => {
+//   await connectDB();
+//   app.listen(PORT, () => {
+//     console.log(`Server running on port ${PORT}`);
+//   });
+// };
+
+// startServer().catch(error => {
+//   console.error('Failed to start server:', error);
+//   process.exit(1);
+// });
+
+// module.exports = app;
+
+
 const startServer = async () => {
   await connectDB();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => { // Listen on all network interfaces
     console.log(`Server running on port ${PORT}`);
+    console.log(`Local: http://localhost:${PORT}`);
+    console.log(`Network: http://${getLocalIpAddress()}:${PORT}`);
+  });
+
+  server.on('error', (err) => {
+    console.error('Server error:', err);
   });
 };
+
+// Helper function to get local IP
+function getLocalIpAddress() {
+  const interfaces = require('os').networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
 
 startServer().catch(error => {
   console.error('Failed to start server:', error);
   process.exit(1);
 });
-
-module.exports = app;
